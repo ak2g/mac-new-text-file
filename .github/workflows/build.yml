@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (ad-hoc signed)
+        run: SIGN_IDENTITY=- ./scripts/build.sh
+
+      - name: Verify bundle
+        run: |
+          APP=build/NewTextFile.app
+          EXT=$APP/Contents/PlugIns/NewTextFileExtension.appex
+          plutil -lint "$APP/Contents/Info.plist" "$EXT/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP"
+          codesign -d --entitlements - --xml "$EXT" | grep -q com.apple.security.app-sandbox
+          test "$(plutil -extract NSExtension.NSExtensionPointIdentifier raw "$EXT/Contents/Info.plist")" = com.apple.FinderSync
+          echo "Bundle OK"
